@@ -8,3 +8,7 @@ output/
 *.user
 *.suo
 *.log
+run
+run.*
+test
+test.*
