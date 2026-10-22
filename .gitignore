@@ -1,0 +1,10 @@
+bin/
+obj/
+dist/
+output/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.log
