@@ -1,0 +1,105 @@
+@if (IsOpen)
+{
+    <div class="modal-backdrop" @onclick="Close">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="icon">🏛️</span>
+                    <h3>Архитектура приложения и памятка к защите</h3>
+                </div>
+                <button class="btn-close" @onclick="Close">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="arch-section">
+                    <h4>1. Структура слоев приложения (Чистая компонентная архитектура)</h4>
+                    <p>Приложение разделено на 3 независимых слоя с однонаправленным потоком данных:</p>
+                    <div class="arch-layers">
+                        <div class="arch-layer-card model-card">
+                            <div class="layer-header">📦 Слой моделей данных (Domain Models)</div>
+                            <div class="layer-path"><code>FlowchartExplainer/Models/</code></div>
+                            <ul>
+                                <li><code>FlowchartDefinition</code>, <code>FlowchartNode</code>, <code>FlowchartEdge</code> — графовая модель схемы.</li>
+                                <li><code>VariableValue</code>, <code>VariableChange</code> — типизированные переменные и история изменений.</li>
+                                <li><code>FlowchartStepSnapshot</code> — неизменяемый снимок состояния трассировки.</li>
+                                <li><code>PracticeTask</code>, <code>PracticeValidationResult</code> — спецификация самостоятельной задачи.</li>
+                            </ul>
+                        </div>
+
+                        <div class="arch-layer-card service-card">
+                            <div class="layer-header">⚙️ Слой логики и состояния (Services / Engine)</div>
+                            <div class="layer-path"><code>FlowchartExplainer/Services/</code></div>
+                            <ul>
+                                <li><code>FlowchartExecutionEngine</code> — чистый C# интерпретатор узлов, формул и условий.</li>
+                                <li><code>SimulationStateService</code> — реактивное хранилище состояния сессии (Reactive State Container).</li>
+                                <li><code>FlowchartRepository</code> — каталог схем и эталонных алгоритмов.</li>
+                            </ul>
+                        </div>
+
+                        <div class="arch-layer-card ui-card">
+                            <div class="layer-header">🖥️ Слой представления (Razor Components)</div>
+                            <div class="layer-path"><code>FlowchartExplainer/Components/</code></div>
+                            <ul>
+                                <li><code>FlowchartViewer.razor</code> — векторная графика SVG со стандартными фигурами ГОСТ/ISO.</li>
+                                <li><code>VariablesTable.razor</code> — динамическая таблица памяти со старыми/новыми значениями.</li>
+                                <li><code>StepControls.razor</code> — пошаговое управление и автопроигрыватель с таймером.</li>
+                                <li><code>StepQuizModal.razor</code> — блокирующие вопросы самопроверки.</li>
+                                <li><code>PracticeSection.razor</code> — интерактивный подбор параметров задачи Типа 2.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arch-section">
+                    <h4>2. Поток данных при действии пользователя (Data Flow)</h4>
+                    <div class="data-flow-steps">
+                        <div class="flow-step">
+                            <span class="step-num">1</span>
+                            <strong>Действие пользователя:</strong> Клик на кнопку «Вперёд», ответ на вопрос или смена слайдера входных данных.
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-num">2</span>
+                            <strong>Вызов метода сервиса:</strong> Событие поступает в <code>SimulationStateService</code> (например, <code>StepForward()</code>).
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-num">3</span>
+                            <strong>Вычисление нового состояния:</strong> <code>FlowchartExecutionEngine</code> вычисляет следующий узел, формулу и приращение переменных.
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-num">4</span>
+                            <strong>Запись в историю:</strong> Создаётся неизменяемый объект <code>FlowchartStepSnapshot</code> и добавляется в стек.
+                        </div>
+                        <div class="flow-step">
+                            <span class="step-num">5</span>
+                            <strong>Реактивное обновление UI:</strong> Сервис вызывает событие <code>OnChange</code>, и Blazor перерисовывает SVG и таблицу переменных без перезагрузки страницы.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arch-section">
+                    <h4>3. Обоснование выбора C# и Blazor WebAssembly</h4>
+                    <ul>
+                        <li><strong>Строгая статическая типизация:</strong> Модели и вычисления на C# гарантируют отсутствие ошибок неявного приведения типов при арифметических операциях (деление, остаток, округление валюты).</li>
+                        <li><strong>Единая экосистема:</strong> Математический движок и пользовательский интерфейс написаны на одном языке, исключая дублирование логики между фронтендом и бэкендом.</li>
+                        <li><strong>Публикация без серверов (WebAssembly):</strong> Код C# компилируется в байт-код WebAssembly и исполняется внутри браузера, что позволяет развернуть проект на бесплатном статическом хостинге GitHub Pages.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary" @onclick="Close">Закрыть окно</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

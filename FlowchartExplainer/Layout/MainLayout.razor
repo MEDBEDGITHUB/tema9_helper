@@ -1,0 +1,84 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject SimulationStateService State
+
+<div class="app-layout">
+    <!-- Шапка приложения -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand-section">
+                <div class="brand-logo">📊</div>
+                <div>
+                    <h1 class="brand-title">Объясни задачу: Блок-схемы ветвления</h1>
+                    <div class="brand-subtitle">
+                        <span>Индивидуальный проект</span> •
+                        <span class="tech-badge-csharp">C# 12 / .NET 9 Blazor WASM</span> •
+                        <span>Строго типизированная архитектура</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn btn-outline" @onclick="() => isArchModalOpen = true" title="Показать архитектуру и схему данных">
+                    🏛️ Архитектура и защита
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Навигационные вкладки -->
+    <nav class="tabs-navigation-bar">
+        <div class="tabs-inner">
+            <button class="tab-btn @(State.ActiveTab == "intro" ? "active" : "")" 
+                    @onclick='() => State.SelectFlowchart("intro")'>
+                1. Вводная: Чётность суммы двух чисел
+            </button>
+            <button class="tab-btn @(State.ActiveTab == "main" ? "active" : "")" 
+                    @onclick='() => State.SelectFlowchart("main")'>
+                ★ 2. Основная: Расчёт покупки со скидкой
+            </button>
+            <button class="tab-btn @(State.ActiveTab == "special" ? "active" : "")" 
+                    @onclick='() => State.SelectFlowchart("special")'>
+                3. Особый случай: Защита от деления на 0
+            </button>
+            <button class="tab-btn tab-practice @(State.ActiveTab == "practice" ? "active" : "")" 
+                    @onclick="State.SwitchToPractice">
+                🎯 Самостоятельная задача (Тип 2)
+            </button>
+        </div>
+    </nav>
+
+    <!-- Основной контент страницы -->
+    <main class="main-container">
+        @Body
+    </main>
+
+    <!-- Подвал -->
+    <footer class="app-footer">
+        <div class="footer-inner">
+            <div>
+                <strong>Индивидуальный проект «Объясни задачу»</strong> • Тема: Чтение и анализ блок-схем
+            </div>
+            <div>
+                Разработано на <strong>C# (Blazor WebAssembly)</strong> без серверных зависимостей • ГОСТ 19.701-90
+            </div>
+        </div>
+    </footer>
+
+    <!-- Модальное окно архитектуры для защиты -->
+    <ArchitectureModal @bind-IsOpen="isArchModalOpen" />
+</div>
+
+@code {
+    private bool isArchModalOpen = false;
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+}

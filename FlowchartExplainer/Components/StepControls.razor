@@ -1,0 +1,97 @@
+@implements IDisposable
+@inject SimulationStateService State
+
+<div class="card controls-card">
+    <div class="controls-toolbar">
+        <div class="btn-group">
+            <button class="btn btn-secondary" @onclick="State.ResetSimulation" title="Сбросить трассировку к началу">
+                <span class="icon">⏮</span> Сначала
+            </button>
+            <button class="btn btn-outline" @onclick="State.StepBackward" disabled="@(!State.CanStepBackward)" title="Вернуться на 1 шаг назад">
+                <span class="icon">◀</span> Назад
+            </button>
+            <button class="btn btn-primary" @onclick="State.StepForward" disabled="@(!State.CanStepForward)" title="@GetStepForwardTitle()">
+                Вперёд <span class="icon">▶</span>
+            </button>
+        </div>
+
+        <div class="autoplay-controls">
+            <button class="btn @(State.IsPlaying ? "btn-warning" : "btn-success")" @onclick="State.ToggleAutoplay">
+                @if (State.IsPlaying)
+                {
+                    <span>⏸ Пауза</span>
+                }
+                else
+                {
+                    <span>▶ Автопроигрывание</span>
+                }
+            </button>
+
+            <div class="speed-selector">
+                <label for="speedRange">Скорость:</label>
+                <select id="speedRange" @bind="SelectedSpeed" class="form-select-sm">
+                    <option value="2500">0.5x (Медленно)</option>
+                    <option value="1500">1.0x (Обычно)</option>
+                    <option value="800">2.0x (Быстро)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Индикатор текущего состояния -->
+    <div class="status-bar">
+        <div class="status-indicator">
+            @if (State.IsCompleted)
+            {
+                <span class="status-pill status-completed">✔ Выполнение алгоритма завершено</span>
+            }
+            else if (State.ActiveQuestion != null && !State.ActiveQuestion.IsAnswered)
+            {
+                <span class="status-pill status-waiting">❓ Ответьте на вопрос справа, чтобы продолжить</span>
+            }
+            else if (State.IsPlaying)
+            {
+                <span class="status-pill status-running">⏳ Идет пошаговое автопроигрывание...</span>
+            }
+            else
+            {
+                <span class="status-pill status-ready">ℹ Шаг @State.CurrentSnapshot.StepIndex. Нажмите «Вперёд», чтобы перейти к следующему блоку</span>
+            }
+        </div>
+        <div class="step-counter">
+            Шагов в истории: <strong>@State.History.Count</strong>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+
+    private string GetStepForwardTitle()
+    {
+        if (State.ActiveQuestion != null && !State.ActiveQuestion.IsAnswered)
+            return "Сначала ответьте на контрольный вопрос справа";
+        if (State.IsCompleted)
+            return "Алгоритм завершён. Нажмите «Сначала», чтобы перезапустить";
+        return "Выполнить следующий блок алгоритма";
+    }
+
+    private int SelectedSpeed
+    {
+        get => State.PlaySpeedMs;
+        set => State.PlaySpeedMs = value;
+    }
+}

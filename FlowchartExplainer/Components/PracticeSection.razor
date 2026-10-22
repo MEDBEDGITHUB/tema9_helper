@@ -1,0 +1,154 @@
+@inject SimulationStateService State
+
+<div class="practice-container">
+    <div class="card practice-header-card">
+        <div class="practice-title-row">
+            <span class="badge badge-practice">Самостоятельная работа · Тип 2</span>
+            <h2>@State.CurrentPracticeTask.Title</h2>
+        </div>
+        <p class="practice-description">@State.CurrentPracticeTask.Description</p>
+
+        <div class="target-condition-box">
+            <div class="target-icon">🎯</div>
+            <div class="target-content">
+                <strong>Целевое условие задачи:</strong>
+                <div class="target-text">@State.CurrentPracticeTask.TargetCondition</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="practice-grid">
+        <!-- Левая колонка: форма подбора данных -->
+        <div class="card practice-form-card">
+            <h3>Подберите входные параметры</h3>
+            <p class="form-hint">Изменяйте ползунки или вводите числа в пределах допустимого диапазона:</p>
+
+            <div class="practice-inputs-list">
+                @foreach (var inp in State.CurrentPracticeTask.Inputs)
+                {
+                    var curVal = State.PracticeInputs.TryGetValue(inp.Name, out var v) ? v : inp.DefaultValue;
+
+                    <div class="practice-input-group">
+                        <div class="input-header">
+                            <label class="label-name">@inp.Label</label>
+                            <span class="range-hint">диапазон: [@inp.Min .. @inp.Max]</span>
+                        </div>
+
+                        <div class="input-controls">
+                            <input type="range" 
+                                   min="@inp.Min" 
+                                   max="@inp.Max" 
+                                   step="@inp.Step"
+                                   value="@curVal" 
+                                   class="form-range"
+                                   @oninput="(e) => OnPracticeInput(inp.Name, e.Value)" />
+
+                            <input type="number" 
+                                   min="@inp.Min" 
+                                   max="@inp.Max" 
+                                   step="@inp.Step"
+                                   value="@curVal" 
+                                   class="form-number-input"
+                                   @onchange="(e) => OnPracticeInput(inp.Name, e.Value)" />
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="practice-actions">
+                <button class="btn btn-primary btn-lg" @onclick="State.CheckPracticeTask">
+                    ✔ Проверить моё решение
+                </button>
+                <button class="btn btn-outline" @onclick="State.ResetPracticeTask">
+                    🔄 Сбросить параметры
+                </button>
+            </div>
+        </div>
+
+        <!-- Правая колонка: карточка результата и разбора -->
+        <div class="card practice-result-card">
+            <h3>Результат проверки</h3>
+
+            @if (State.PracticeResult == null)
+            {
+                <div class="empty-result">
+                    <span class="icon-empty">⏳</span>
+                    <p>Подберите значения параметров слева и нажмите <strong>«Проверить моё решение»</strong>.</p>
+                    <small>Система промоделирует блок-схему и объяснит полученный результат.</small>
+                </div>
+            }
+            else
+            {
+                var res = State.PracticeResult;
+
+                <div class="result-banner @(res.IsSuccess ? "result-success" : "result-failure")">
+                    <div class="banner-header">
+                        <span class="banner-icon">@(res.IsSuccess ? "🎉" : "⚠️")</span>
+                        <h4>@(res.IsSuccess ? "Задание решено верно!" : "Цель пока не достигнута")</h4>
+                    </div>
+
+                    <div class="banner-body">
+                        <div class="actual-branch">
+                            <strong>Фактический результат схемы:</strong>
+                            <div class="branch-tag">@res.ActualBranchOrResult</div>
+                        </div>
+
+                        <div class="explanation-block">
+                            <strong>Подробный разбор:</strong>
+                            <p>@res.Explanation</p>
+                        </div>
+
+                        @if (!res.IsSuccess && !string.IsNullOrEmpty(res.Hint))
+                        {
+                            <div class="hint-block">
+                                <span class="hint-title">💡 Подсказка для исправления:</span>
+                                <p>@res.Hint</p>
+                            </div>
+                        }
+
+                        @if (res.FinalVariables.Count > 0)
+                        {
+                            <div class="res-vars-table">
+                                <strong>Итоговые переменные в памяти:</strong>
+                                <div class="vars-chips">
+                                    @foreach (var (k, v) in res.FinalVariables)
+                                    {
+                                        <div class="chip">
+                                            <span class="chip-key">@k:</span>
+                                            <span class="chip-val">@v.ToString()</span>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="banner-footer">
+                        @if (!res.IsSuccess)
+                        {
+                            <button class="btn btn-warning" @onclick="State.ResetPracticeTask">
+                                🔄 Попробовать другую комбинацию
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-success" @onclick="() => State.SelectFlowchart(State.CurrentPracticeTask.FlowchartId)">
+                                👁 Посмотреть эту комбинацию на схеме в симуляторе
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private void OnPracticeInput(string name, object? value)
+    {
+        if (value != null && double.TryParse(value.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var num))
+        {
+            State.SetPracticeInput(name, num);
+        }
+    }
+}

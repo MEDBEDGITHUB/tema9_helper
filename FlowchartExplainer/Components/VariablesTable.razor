@@ -1,0 +1,121 @@
+@implements IDisposable
+@inject SimulationStateService State
+
+<div class="card variables-card">
+    <div class="card-header">
+        <div class="card-title">
+            <span class="icon">📊</span>
+            <h4>Таблица переменных (Память программы)</h4>
+        </div>
+        <span class="step-badge">Шаг @State.CurrentSnapshot.StepIndex</span>
+    </div>
+
+    <!-- Блок текущего действия и формулы -->
+    <div class="step-explanation-box">
+        <div class="explanation-title">
+            <span class="pulse-dot"></span>
+            <strong>Текущее действие:</strong>
+        </div>
+        <p class="explanation-text">@State.CurrentSnapshot.Explanation</p>
+
+        @if (!string.IsNullOrEmpty(State.CurrentSnapshot.FormulaApplied))
+        {
+            <div class="formula-box">
+                <span class="formula-label">Применённая формула / проверка:</span>
+                <code class="formula-code">@State.CurrentSnapshot.FormulaApplied</code>
+            </div>
+        }
+    </div>
+
+    <!-- Таблица переменных -->
+    <div class="table-responsive">
+        <table class="variables-table">
+            <thead>
+                <tr>
+                    <th>Переменная</th>
+                    <th>Тип</th>
+                    <th>Текущее значение</th>
+                    <th>История изменения на шаге</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (State.CurrentSnapshot.Variables.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="empty-state">Переменные ещё не инициализированы. Нажмите «Следующий шаг».</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var (name, value) in State.CurrentSnapshot.Variables)
+                    {
+                        var change = State.CurrentSnapshot.RecentChanges.FirstOrDefault(c => c.Name == name);
+                        var isChanged = change != null && change.HasChanged;
+                        var rowClass = isChanged ? "row-changed" : "";
+
+                        <tr class="@rowClass">
+                            <td class="var-name">
+                                <code>@name</code>
+                                @if (isChanged)
+                                {
+                                    <span class="badge-updated">Обновлено</span>
+                                }
+                            </td>
+                            <td class="var-type">
+                                <span class="type-pill">@value.TypeName</span>
+                            </td>
+                            <td class="var-value">
+                                <strong class="@(isChanged ? "val-highlight" : "")">@value.ToString()</strong>
+                            </td>
+                            <td class="var-change">
+                                @if (change != null)
+                                {
+                                    @if (!change.OldValue.IsEmpty && change.HasChanged)
+                                    {
+                                        <span class="old-val">@change.OldValue.ToString()</span>
+                                        <span class="arrow-change">→</span>
+                                        <span class="new-val">@change.NewValue.ToString()</span>
+                                    }
+                                    else if (change.OldValue.IsEmpty)
+                                    {
+                                        <span class="new-val">Инициализация: @change.NewValue.ToString()</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="no-change">Без изменений</span>
+                                    }
+
+                                    @if (!string.IsNullOrEmpty(change.Formula))
+                                    {
+                                        <div class="change-formula">(@change.Formula)</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="no-change">Без изменений</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+}

@@ -1,0 +1,55 @@
+name: Deploy Blazor WASM to GitHub Pages
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore FlowchartExplainer.sln
+
+      - name: Build solution
+        run: dotnet build FlowchartExplainer.sln -c Release --no-restore
+
+      - name: Run automated tests
+        run: dotnet test FlowchartExplainer.sln -c Release --no-build --verbosity normal
+
+      - name: Publish Blazor WebAssembly
+        run: dotnet publish FlowchartExplainer/FlowchartExplainer.csproj -c Release -o dist/web --no-build
+
+      - name: Fix base href and prepare for GitHub Pages
+        run: |
+          # Автоматически подставляем имя репозитория в base href
+          REPO_NAME="${{ github.event.repository.name }}"
+          sed -i "s|<base href=\"/\" />|<base href=\"/$REPO_NAME/\" />|g" dist/web/wwwroot/index.html
+          # Копируем index.html в 404.html для правильной маршрутизации SPA
+          cp dist/web/wwwroot/index.html dist/web/wwwroot/404.html
+          # Создаем .nojekyll для корректной загрузки каталога _framework
+          touch dist/web/wwwroot/.nojekyll
+
+      - name: Deploy to GitHub Pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist/web/wwwroot
+          branch: gh-pages

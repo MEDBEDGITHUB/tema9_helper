@@ -1,0 +1,39 @@
+@page "/"
+@implements IDisposable
+@inject SimulationStateService State
+
+<PageTitle>Объясни задачу: Блок-схемы ветвления (C# Blazor)</PageTitle>
+
+@if (State.IsPracticeMode)
+{
+    <PracticeSection />
+}
+else
+{
+    <div class="workspace-grid">
+        <!-- Левая колонка: Входные параметры, управление и визуализатор блок-схемы -->
+        <div class="left-column">
+            <InputPanel />
+            <StepControls />
+            <FlowchartViewer />
+        </div>
+
+        <!-- Правая колонка: Вопросы самопроверки и Таблица переменных -->
+        <div class="right-column">
+            <StepQuizModal />
+            <VariablesTable />
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+}

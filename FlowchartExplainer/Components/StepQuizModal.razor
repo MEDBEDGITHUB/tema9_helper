@@ -1,0 +1,144 @@
+@implements IDisposable
+@inject SimulationStateService State
+
+@if (State.ActiveQuestion != null)
+{
+    var qState = State.ActiveQuestion;
+    var q = qState.Question;
+
+    <div class="card quiz-card @(qState.IsAnswered ? (qState.IsCorrect == true ? "quiz-correct" : "quiz-wrong") : "quiz-active")">
+        <div class="quiz-header">
+            <div class="quiz-badge">
+                <span class="icon">❓</span> Вопрос для самопроверки на текущем шаге
+            </div>
+            @if (qState.IsAnswered)
+            {
+                <span class="result-badge @(qState.IsCorrect == true ? "badge-success" : "badge-danger")">
+                    @(qState.IsCorrect == true ? "Верно!" : "Ошибка")
+                </span>
+            }
+        </div>
+
+        <div class="quiz-body">
+            <p class="quiz-prompt">@q.Prompt</p>
+
+            @if (!qState.IsAnswered)
+            {
+                @if (q.Type == QuestionType.Choice)
+                {
+                    <div class="quiz-options">
+                        @foreach (var opt in q.Options)
+                        {
+                            <button class="btn btn-option @(userSelectedAnswer == opt ? "selected" : "")" 
+                                    @onclick="() => SelectOption(opt)">
+                                <span class="radio-circle">@(userSelectedAnswer == opt ? "◉" : "○")</span>
+                                <span class="option-text">@opt</span>
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="quiz-number-input">
+                        <label for="quizAnswerInput">Введите числовое значение:</label>
+                        <input id="quizAnswerInput" type="number" step="any" class="form-input" 
+                               placeholder="Например: 12"
+                               @bind="userSelectedAnswer" 
+                               @onkeydown="HandleKeyDown" />
+                    </div>
+                }
+
+                <div class="quiz-actions">
+                    <button class="btn btn-primary" 
+                            disabled="@string.IsNullOrWhiteSpace(userSelectedAnswer)" 
+                            @onclick="SubmitAnswer">
+                        Проверить ответ
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="feedback-box @(qState.IsCorrect == true ? "feedback-success" : "feedback-danger")">
+                    <div class="feedback-title">
+                        @(qState.IsCorrect == true ? "✔ Отлично!" : "✖ Не совсем так:")
+                    </div>
+                    <div class="feedback-text">
+                        @qState.FeedbackMessage
+                    </div>
+                </div>
+
+                <div class="quiz-actions">
+                    @if (qState.IsCorrect == true)
+                    {
+                        <button class="btn btn-success" @onclick="ProceedNext">
+                            Продолжить разбор алгоритма ▶
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-warning" @onclick="RetryQuestion">
+                            🔄 Попробовать снова
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private string userSelectedAnswer = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        userSelectedAnswer = State.ActiveQuestion?.SelectedAnswer ?? string.Empty;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+
+    private void SelectOption(string opt)
+    {
+        userSelectedAnswer = opt;
+    }
+
+    private void SubmitAnswer()
+    {
+        if (!string.IsNullOrWhiteSpace(userSelectedAnswer))
+        {
+            State.AnswerQuestion(userSelectedAnswer);
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            SubmitAnswer();
+        }
+    }
+
+    private void ProceedNext()
+    {
+        State.StepForward();
+    }
+
+    private void RetryQuestion()
+    {
+        if (State.ActiveQuestion != null)
+        {
+            State.ActiveQuestion.IsCorrect = null;
+            State.ActiveQuestion.SelectedAnswer = null;
+            userSelectedAnswer = string.Empty;
+            State.NotifyStateChanged();
+        }
+    }
+}

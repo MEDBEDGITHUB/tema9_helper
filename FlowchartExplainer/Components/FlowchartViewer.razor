@@ -1,0 +1,253 @@
+@using System.Globalization
+@implements IDisposable
+@inject SimulationStateService State
+
+<div class="flowchart-container">
+    <div class="flowchart-header">
+        <div class="flowchart-info">
+            <span class="badge @GetBadgeClass(State.CurrentFlowchart.TypeCategory)">@State.CurrentFlowchart.Badge</span>
+            <h3 class="flowchart-title">@State.CurrentFlowchart.Title</h3>
+        </div>
+        <div class="flowchart-goal">
+            <i class="icon-target">🎯</i> <span>@State.CurrentFlowchart.Goal</span>
+        </div>
+    </div>
+
+    <div class="svg-wrapper">
+        <svg viewBox="0 0 @State.CurrentFlowchart.ViewBoxWidth @State.CurrentFlowchart.ViewBoxHeight" 
+             preserveAspectRatio="xMidYMid meet"
+             class="flowchart-svg">
+            <defs>
+                <!-- Маркеры стрелок -->
+                <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#94a3b8" />
+                </marker>
+                <marker id="arrow-visited" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+                </marker>
+                <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706" />
+                </marker>
+
+                <!-- Фильтр свечения активного узла -->
+                <filter id="node-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#f59e0b" flood-opacity="0.45" />
+                </filter>
+                <filter id="box-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.08" />
+                </filter>
+            </defs>
+
+            <!-- 1. РЕБРА (Связи / Стрелки) -->
+            <g class="edges-group">
+                @foreach (var edge in State.CurrentFlowchart.Edges)
+                {
+                    var isVisited = State.CurrentSnapshot.VisitedEdgeIds.Contains(edge.Id);
+                    var edgeClass = isVisited ? "edge-line visited" : "edge-line";
+                    var markerId = isVisited ? "url(#arrow-visited)" : "url(#arrow-default)";
+                    var pathD = GetEdgePathD(edge);
+
+                    <path d="@pathD" 
+                          class="@edgeClass" 
+                          marker-end="@markerId" />
+
+                    @if (!string.IsNullOrEmpty(edge.Label))
+                    {
+                        var labelPos = GetEdgeLabelPosition(edge);
+                        var isYes = edge.Label.Equals("Да", StringComparison.OrdinalIgnoreCase);
+                        var badgeBg = isYes ? "#16a34a" : "#dc2626";
+                        
+                        <g class="edge-label-group" transform="translate(@labelPos.X.ToString(CultureInfo.InvariantCulture), @labelPos.Y.ToString(CultureInfo.InvariantCulture))">
+                            <rect x="-18" y="-12" width="36" height="22" rx="11" fill="@badgeBg" filter="url(#box-shadow)" />
+                            @RenderSvgText(edge.Label, 0, 3, "", "#ffffff", 12, 700)
+                        </g>
+                    }
+                }
+            </g>
+
+            <!-- 2. УЗЛЫ (Блоки) -->
+            <g class="nodes-group">
+                @foreach (var node in State.CurrentFlowchart.Nodes)
+                {
+                    var isCurrent = node.Id == State.CurrentSnapshot.CurrentNodeId;
+                    var isVisited = State.CurrentSnapshot.VisitedNodeIds.Contains(node.Id);
+                    var nodeClass = isCurrent ? "node-group current" : isVisited ? "node-group visited" : "node-group";
+
+                    <g class="@nodeClass" transform="translate(@node.X.ToString(CultureInfo.InvariantCulture), @node.Y.ToString(CultureInfo.InvariantCulture))">
+                        @RenderNodeShape(node, isCurrent, isVisited)
+
+                        <!-- Текст узла -->
+                        @RenderSvgText(node.Text, 0, string.IsNullOrEmpty(node.Subtext) ? 5 : -3, "node-text main")
+
+                        @if (!string.IsNullOrEmpty(node.Subtext))
+                        {
+                            @RenderSvgText(node.Subtext, 0, 16, "node-text sub")
+                        }
+
+                        @if (isCurrent)
+                        {
+                            <!-- Маркер текущего шага -->
+                            <g transform="translate(@(node.Width / 2 - 12), @(-node.Height / 2 - 8))">
+                                <rect x="-42" y="-10" width="84" height="20" rx="10" fill="#f59e0b" />
+                                @RenderSvgText("ТЕКУЩИЙ", 0, 4, "", "#ffffff", 10, 800)
+                            </g>
+                        }
+                        else if (isVisited)
+                        {
+                            <!-- Иконка пройденного узла -->
+                            <g transform="translate(@(node.Width / 2 - 8), @(-node.Height / 2 + 8))">
+                                <circle cx="0" cy="0" r="8" fill="#2563eb" />
+                                <path d="M -4 0 L -1 3 L 4 -3" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" />
+                            </g>
+                        }
+                    </g>
+                }
+            </g>
+        </svg>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+
+    private string GetBadgeClass(string category) => category switch
+    {
+        "intro" => "badge-intro",
+        "main" => "badge-main",
+        "special" => "badge-special",
+        _ => "badge-default"
+    };
+
+    private RenderFragment RenderSvgText(string text, double x, double y, string cssClass = "", string fill = "", double fontSize = 0, int fontWeight = 0) => builder =>
+    {
+        builder.OpenElement(0, "text");
+        builder.AddAttribute(1, "x", x.ToString(CultureInfo.InvariantCulture));
+        builder.AddAttribute(2, "y", y.ToString(CultureInfo.InvariantCulture));
+        builder.AddAttribute(3, "text-anchor", "middle");
+        if (!string.IsNullOrEmpty(cssClass)) builder.AddAttribute(4, "class", cssClass);
+        if (!string.IsNullOrEmpty(fill)) builder.AddAttribute(5, "fill", fill);
+        if (fontSize > 0) builder.AddAttribute(6, "font-size", fontSize.ToString(CultureInfo.InvariantCulture));
+        if (fontWeight > 0) builder.AddAttribute(7, "font-weight", fontWeight.ToString());
+        builder.AddContent(8, text);
+        builder.CloseElement();
+    };
+
+    private RenderFragment RenderNodeShape(FlowchartNode node, bool isCurrent, bool isVisited) => builder =>
+    {
+        var halfW = node.Width / 2;
+        var halfH = node.Height / 2;
+        var filter = isCurrent ? "url(#node-glow)" : "url(#box-shadow)";
+
+        switch (node.Type)
+        {
+            case NodeType.Start:
+            case NodeType.End:
+                builder.OpenElement(0, "rect");
+                builder.AddAttribute(1, "x", (-halfW).ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(2, "y", (-halfH).ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(3, "width", node.Width.ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(4, "height", node.Height.ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(5, "rx", (node.Height / 2).ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(6, "ry", (node.Height / 2).ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(7, "class", "node-shape shape-terminal");
+                builder.AddAttribute(8, "filter", filter);
+                builder.CloseElement();
+                break;
+
+            case NodeType.Input:
+            case NodeType.Output:
+                var slant = 14.0;
+                var pts = $"{(-halfW + slant).ToString(CultureInfo.InvariantCulture)},{(-halfH).ToString(CultureInfo.InvariantCulture)} " +
+                          $"{(halfW + slant).ToString(CultureInfo.InvariantCulture)},{(-halfH).ToString(CultureInfo.InvariantCulture)} " +
+                          $"{(halfW - slant).ToString(CultureInfo.InvariantCulture)},{(halfH).ToString(CultureInfo.InvariantCulture)} " +
+                          $"{(-halfW - slant).ToString(CultureInfo.InvariantCulture)},{(halfH).ToString(CultureInfo.InvariantCulture)}";
+                builder.OpenElement(10, "polygon");
+                builder.AddAttribute(11, "points", pts);
+                builder.AddAttribute(12, "class", "node-shape shape-io");
+                builder.AddAttribute(13, "filter", filter);
+                builder.CloseElement();
+                break;
+
+            case NodeType.Condition:
+                var diamondPts = $"0,{(-halfH).ToString(CultureInfo.InvariantCulture)} " +
+                                 $"{halfW.ToString(CultureInfo.InvariantCulture)},0 " +
+                                 $"0,{halfH.ToString(CultureInfo.InvariantCulture)} " +
+                                 $"{(-halfW).ToString(CultureInfo.InvariantCulture)},0";
+                builder.OpenElement(20, "polygon");
+                builder.AddAttribute(21, "points", diamondPts);
+                builder.AddAttribute(22, "class", "node-shape shape-condition");
+                builder.AddAttribute(23, "filter", filter);
+                builder.CloseElement();
+                break;
+
+            case NodeType.Process:
+            default:
+                builder.OpenElement(30, "rect");
+                builder.AddAttribute(31, "x", (-halfW).ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(32, "y", (-halfH).ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(33, "width", node.Width.ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(34, "height", node.Height.ToString(CultureInfo.InvariantCulture));
+                builder.AddAttribute(35, "rx", "8");
+                builder.AddAttribute(36, "ry", "8");
+                builder.AddAttribute(37, "class", "node-shape shape-process");
+                builder.AddAttribute(38, "filter", filter);
+                builder.CloseElement();
+                break;
+        }
+    };
+
+    private string GetEdgePathD(FlowchartEdge edge)
+    {
+        var fromNode = State.CurrentFlowchart.Nodes.FirstOrDefault(n => n.Id == edge.From);
+        var toNode = State.CurrentFlowchart.Nodes.FirstOrDefault(n => n.Id == edge.To);
+        if (fromNode == null || toNode == null) return string.Empty;
+
+        if (edge.Waypoints != null && edge.Waypoints.Count > 0)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(CultureInfo.InvariantCulture, $"M {edge.Waypoints[0].X} {edge.Waypoints[0].Y} ");
+            for (int i = 1; i < edge.Waypoints.Count; i++)
+            {
+                sb.Append(CultureInfo.InvariantCulture, $"L {edge.Waypoints[i].X} {edge.Waypoints[i].Y} ");
+            }
+            return sb.ToString();
+        }
+
+        // Прямое вертикальное соединение
+        var startY = fromNode.Y + fromNode.Height / 2;
+        var endY = toNode.Y - toNode.Height / 2;
+        return string.Format(CultureInfo.InvariantCulture, "M {0} {1} L {2} {3}", fromNode.X, startY, toNode.X, endY);
+    }
+
+    private Waypoint GetEdgeLabelPosition(FlowchartEdge edge)
+    {
+        if (edge.Waypoints != null && edge.Waypoints.Count >= 2)
+        {
+            var p1 = edge.Waypoints[0];
+            var p2 = edge.Waypoints[1];
+            return new Waypoint((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2 - 12);
+        }
+
+        var fromNode = State.CurrentFlowchart.Nodes.FirstOrDefault(n => n.Id == edge.From);
+        var toNode = State.CurrentFlowchart.Nodes.FirstOrDefault(n => n.Id == edge.To);
+        if (fromNode != null && toNode != null)
+        {
+            return new Waypoint((fromNode.X + toNode.X) / 2, (fromNode.Y + toNode.Y) / 2);
+        }
+
+        return new Waypoint(0, 0);
+    }
+}

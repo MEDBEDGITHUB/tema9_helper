@@ -1,0 +1,123 @@
+@implements IDisposable
+@inject SimulationStateService State
+
+<div class="card inputs-card">
+    <div class="card-header">
+        <div class="card-title">
+            <span class="icon">⚙️</span>
+            <h4>Входные данные схемы</h4>
+        </div>
+        <button class="btn btn-sm btn-outline" @onclick="ResetToDefaults" title="Вернуть исходные значения">
+            Сброс на дефолт
+        </button>
+    </div>
+
+    <div class="inputs-grid">
+        @foreach (var inp in State.CurrentFlowchart.Inputs)
+        {
+            var currentValue = State.UserInputs.TryGetValue(inp.Name, out var v) ? v : inp.DefaultValue;
+
+            <div class="input-control-group">
+                <div class="input-label-row">
+                    <label for="inp_@inp.Name" class="input-label">@inp.Label</label>
+                    <span class="input-range-badge">[@inp.Min .. @inp.Max]</span>
+                </div>
+
+                <div class="input-field-row">
+                    <input type="range" 
+                           min="@inp.Min" 
+                           max="@inp.Max" 
+                           step="@inp.Step"
+                           value="@currentValue" 
+                           class="form-range"
+                           @oninput="(e) => OnInputChanged(inp.Name, e.Value)" />
+
+                    <input type="number" 
+                           id="inp_@inp.Name"
+                           min="@inp.Min" 
+                           max="@inp.Max" 
+                           step="@inp.Step"
+                           value="@currentValue" 
+                           class="form-number-input"
+                           @onchange="(e) => OnInputChanged(inp.Name, e.Value)" />
+                </div>
+                <span class="input-description">@inp.Description</span>
+            </div>
+        }
+    </div>
+
+    <!-- Быстрые пресеты для демонстрации различных ветвей -->
+    <div class="presets-row">
+        <span class="presets-title">Быстрые сценарии ветвления:</span>
+        <div class="presets-buttons">
+            @if (State.CurrentFlowchart.Id == "intro")
+            {
+                <button class="btn btn-preset" @onclick="() => SetIntroPreset(6, 4)">Ветвь «Да»: 6 + 4 = 10 (Чётное)</button>
+                <button class="btn btn-preset" @onclick="() => SetIntroPreset(7, 4)">Ветвь «Нет»: 7 + 4 = 11 (Нечётное)</button>
+            }
+            else if (State.CurrentFlowchart.Id == "main")
+            {
+                <button class="btn btn-preset" @onclick="() => SetMainPreset(150, 10)">Скидка 20% + VIP (150×10 = 1500)</button>
+                <button class="btn btn-preset" @onclick="() => SetMainPreset(120, 10)">Скидка 20% + Стандарт (120×10 = 1200)</button>
+                <button class="btn btn-preset" @onclick="() => SetMainPreset(80, 10)">Скидка 5% (80×10 = 800)</button>
+            }
+            else if (State.CurrentFlowchart.Id == "special")
+            {
+                <button class="btn btn-preset btn-preset-danger" @onclick="() => SetSpecialPreset(30, 0)">Особый случай: b = 0 (Защита)</button>
+                <button class="btn btn-preset" @onclick="() => SetSpecialPreset(30, 5)">Нацело: 30 / 5 (q=6, r=0)</button>
+                <button class="btn btn-preset" @onclick="() => SetSpecialPreset(30, 4)">С остатком: 30 / 4 (q=7, r=2)</button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+
+    private void OnInputChanged(string name, object? value)
+    {
+        if (value != null && double.TryParse(value.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var num))
+        {
+            State.SetInput(name, num);
+        }
+    }
+
+    private void ResetToDefaults()
+    {
+        foreach (var inp in State.CurrentFlowchart.Inputs)
+        {
+            State.SetInput(inp.Name, inp.DefaultValue);
+        }
+    }
+
+    private void SetIntroPreset(double a, double b)
+    {
+        State.SetInput("a", a);
+        State.SetInput("b", b);
+    }
+
+    private void SetMainPreset(double price, double qty)
+    {
+        State.SetInput("price", price);
+        State.SetInput("qty", qty);
+    }
+
+    private void SetSpecialPreset(double a, double b)
+    {
+        State.SetInput("a", a);
+        State.SetInput("b", b);
+    }
+}
