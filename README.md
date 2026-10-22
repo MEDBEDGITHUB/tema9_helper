@@ -113,11 +113,6 @@ tema9/
 │   └── wwwroot/                        # Статические ресурсы (CSS, SVG, HTML)
 ├── FlowchartExplainer.Tests/           # Автоматические тесты (xUnit)
 │   └── FlowchartEngineTests.cs         # 5 обязательных проверочных сценариев
-├── ARCHITECTURE.md                     # Подробное описание архитектуры и движения данных
-├── TECH_CHOICE.md                      # Обоснование выбора C# и Blazor WASM
-├── VERIFICATION.md                     # Протокол 5 проверок (ожидаемое vs фактическое)
-├── AI_NOTE.md                          # Отчет об использовании ИИ согласно разделу 5
-├── PEER_REVIEW.md                      # Протокол проверки одноклассником и улучшения
 └── FlowchartExplainer.sln              # Файл решения .NET
 ```
 
